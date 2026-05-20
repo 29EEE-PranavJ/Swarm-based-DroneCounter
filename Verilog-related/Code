@@ -1,0 +1,174 @@
+module threat_fsm(
+
+    input clk,
+    input reset,
+
+    input [1:0] fusion_score,
+    input [1:0] mode_select,
+
+    output reg [2:0] threat_state
+
+);
+
+    // =====================================================
+    // State Encoding
+    // =====================================================
+
+    parameter SAFE     = 3'b000;
+    parameter LOW      = 3'b001;
+    parameter MEDIUM   = 3'b010;
+    parameter HIGH     = 3'b011;
+    parameter CRITICAL = 3'b100;
+
+    // =====================================================
+    // Mode Encoding
+    // =====================================================
+
+    parameter SURVEILLANCE = 2'b00;
+    parameter DEFENSIVE    = 2'b01;
+    parameter EMERGENCY    = 2'b10;
+    parameter LOCKDOWN     = 2'b11;
+
+    reg [2:0] current_state;
+    reg [2:0] next_state;
+
+    reg [3:0] high_counter;
+
+    // =====================================================
+    // State Register
+    // =====================================================
+
+    always @(posedge clk or posedge reset)
+    begin
+
+        if(reset)
+        begin
+            current_state <= SAFE;
+            high_counter <= 0;
+        end
+
+        else
+        begin
+            current_state <= next_state;
+
+            if(current_state == HIGH)
+                high_counter <= high_counter + 1;
+            else
+                high_counter <= 0;
+        end
+
+    end
+
+    // =====================================================
+    // Reconfigurable Threat Logic
+    // =====================================================
+
+    always @(*)
+    begin
+
+        case(mode_select)
+
+            // =============================================
+            // SURVEILLANCE MODE
+            // =============================================
+
+            SURVEILLANCE:
+            begin
+
+                case(fusion_score)
+
+                    2'b00: next_state = SAFE;
+                    2'b01: next_state = LOW;
+                    2'b10: next_state = MEDIUM;
+
+                    2'b11:
+                    begin
+                        if(high_counter >= 4)
+                            next_state = CRITICAL;
+                        else
+                            next_state = HIGH;
+                    end
+
+                    default: next_state = SAFE;
+
+                endcase
+
+            end
+
+            // =============================================
+            // DEFENSIVE MODE
+            // =============================================
+
+            DEFENSIVE:
+            begin
+
+                case(fusion_score)
+
+                    2'b00: next_state = SAFE;
+                    2'b01: next_state = LOW;
+                    2'b10: next_state = HIGH;
+                    2'b11: next_state = HIGH;
+
+                    default: next_state = SAFE;
+
+                endcase
+
+            end
+
+            // =============================================
+            // EMERGENCY MODE
+            // =============================================
+
+            EMERGENCY:
+            begin
+
+                case(fusion_score)
+
+                    2'b00: next_state = SAFE;
+                    2'b01: next_state = MEDIUM;
+                    2'b10: next_state = HIGH;
+                    2'b11: next_state = CRITICAL;
+
+                    default: next_state = SAFE;
+
+                endcase
+
+            end
+
+            // =============================================
+            // LOCKDOWN MODE
+            // =============================================
+
+            LOCKDOWN:
+            begin
+
+                case(fusion_score)
+
+                    2'b00: next_state = SAFE;
+                    2'b01: next_state = HIGH;
+                    2'b10: next_state = CRITICAL;
+                    2'b11: next_state = CRITICAL;
+
+                    default: next_state = SAFE;
+
+                endcase
+
+            end
+
+            default:
+                next_state = SAFE;
+
+        endcase
+
+    end
+
+    // =====================================================
+    // Output Logic
+    // =====================================================
+
+    always @(*)
+    begin
+        threat_state = current_state;
+    end
+
+endmodule
