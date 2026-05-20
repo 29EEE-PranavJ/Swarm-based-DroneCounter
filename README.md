@@ -141,7 +141,7 @@ The project evaluates:
 
 Project under development.
 
-Planned modules:
+Planned modules: 
 - Threat Priority FSM
 - Interceptor Allocation Logic
 - Swarm Detection Simulation
